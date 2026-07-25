@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "start:prod": "node --env-file=.env.local --use-system-ca .next/standalone/server.js",
+    "start:prod": "node .next/standalone/server.js",
     "lint": "eslint"
   },
   "dependencies": {

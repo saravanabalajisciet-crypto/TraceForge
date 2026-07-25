@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy only package files first for better layer caching
 COPY package.json package-lock.json ./
-RUN npm ci --ignore-scripts
+RUN npm install --prefer-offline --no-audit --no-fund
 
 # ─── Stage 2: Builder ─────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
@@ -49,4 +49,4 @@ ENV HOSTNAME="0.0.0.0"
 
 # GEMINI_API_KEY is injected at runtime via docker-compose environment: block
 # It is NOT baked into the image layer — secrets stay out of the image.
-CMD ["node", "--use-system-ca", "server.js"]
+CMD ["node", "server.js"]

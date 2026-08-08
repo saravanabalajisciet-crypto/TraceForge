@@ -1,6 +1,21 @@
 # TraceForge AI
 
-> A browser-native Digital Forensics & Incident Response (DFIR) learning platform — built for the PWNDORA cybersecurity training ecosystem.
+> A browser-native Digital Forensics & Incident Response (DFIR) learning and investigation platform — built for the PWNDORA cybersecurity training ecosystem.
+
+---
+
+## V1 vs V2
+
+| | V1 (Predefined Scenarios) | V2 (Evidence-Driven) |
+|---|---|---|
+| Input | Curated scenario data | Any JSON/NDJSON/CSV event dataset |
+| Timeline | Manual drag-and-drop | Automatically reconstructed |
+| MITRE Mapping | Pre-defined per scenario | Inferred from event patterns |
+| IOC Extraction | Scenario-embedded | Auto-extracted from all fields |
+| AI Mentor | Socratic coaching | Dynamic context from reconstruction |
+| Language | English only | English, Tamil, Hindi, Malayalam |
+
+Both modes run side-by-side. V1 scenarios are fully preserved.
 
 ---
 
@@ -16,6 +31,8 @@ TraceForge AI simulates real-world DFIR investigations in the browser. Learners 
 
 ## Key Features
 
+### V1 — Scenario-Based Learning
+
 | Feature | Description |
 |---|---|
 | 🔍 **Evidence Workspace** | Shuffled, filterable evidence cards from 6 source types |
@@ -27,6 +44,21 @@ TraceForge AI simulates real-world DFIR investigations in the browser. Learners 
 | 📋 **Investigation Review** | Full side-by-side comparison of learner vs. master analysis |
 | 📁 **Data-driven Scenarios** | New scenarios require zero code changes — add a TypeScript data file |
 | 🎨 **Glassmorphism UI** | Dark-theme, terminal-inspired design built for professionals |
+| 🔄 **Offline Mentor Fallback** | Rule-based guidance activates silently when Gemini is unavailable |
+
+### V2 — Evidence-Driven Investigation
+
+| Feature | Description |
+|---|---|
+| 📤 **Universal Event Ingestion** | Upload JSON, NDJSON, or CSV event datasets — up to 5MB |
+| 🔬 **Event Normalization** | Timestamps, IPs, usernames, process names, hashes standardized automatically |
+| ⏱️ **Timeline Reconstruction** | Chronological sort + entity correlation + suspicious sequence detection |
+| 🕵️ **Attack Story Engine** | 10 ATT&CK stage rules infer kill-chain with confidence scores |
+| 🗺️ **Dynamic MITRE Inference** | 15+ technique rules — requires ≥2 corroborating signals, never keyword-only |
+| 🔎 **IOC Auto-Extraction** | 12 IOC types extracted from every event field including raw data |
+| 🌐 **Multilingual Explanations** | English · தமிழ் · हिन्दी · മലയാളം — technical identifiers never translated |
+| 🤖 **V2 AI Mentor** | Dynamic context from reconstruction — same Gemini + offline fallback |
+| 📊 **Confidence-First UI** | Every inference has a confidence badge and supporting event count |
 
 ---
 
@@ -114,8 +146,18 @@ traceforge/
 │   ├── lib/
 │   │   ├── geminiCoach.ts            # Gemini prompt service (server-only)
 │   │   ├── offlineCoach.ts           # Rule-based offline mentor fallback
-│   │   ├── investigationAnalysis.ts  # Rule-based scoring engine
-│   │   └── utils.ts
+│   │   ├── investigationAnalysis.ts  # Rule-based scoring engine (V1)
+│   │   ├── utils.ts
+│   │   └── v2/                       # V2 engines (all pure TypeScript)
+│   │       ├── eventIngestion.ts         # Parse JSON/NDJSON/CSV → SecurityEvent[]
+│   │       ├── eventNormalization.ts     # Normalize all fields, detect severity
+│   │       ├── timelineReconstruction.ts # Sort + correlate + detect patterns
+│   │       ├── attackStory.ts            # Infer ATT&CK stages with confidence
+│   │       ├── mitreInference.ts         # Map events → ATT&CK techniques (≥2 signals)
+│   │       ├── iocExtraction.ts          # Extract 12 IOC types from all fields
+│   │       ├── explanationLocalization.ts# Translate explanations (en/ta/hi/ml)
+│   │       ├── reconstructionPipeline.ts # Orchestrate all 6 engines
+│   │       └── investigationStore.ts     # In-memory result store (LRU-20)
 │   ├── types/
 │   │   └── index.ts                  # All TypeScript types
 │   └── utils/
@@ -183,10 +225,12 @@ Open [http://localhost:3000](http://localhost:3000).
 | Route | Description |
 |---|---|
 | `/` | Landing page |
-| `/scenarios` | Scenario library |
-| `/investigation?id=shadowlock` | Investigation workspace |
+| `/scenarios` | Scenario library (V1) |
+| `/investigation?id=shadowlock` | V1 investigation workspace |
 | `/investigation?id=ghost-login` | Ghost Login investigation |
 | `/investigation?id=silent-insider` | Silent Insider investigation |
+| `/investigate/upload` | **V2** — Upload event dataset |
+| `/investigate/[id]` | **V2** — Reconstructed investigation view |
 | `/report` | Sample incident report |
 
 ---
@@ -257,9 +301,94 @@ docker compose down
 
 ---
 
+## TraceForge AI V2 — Evidence-Driven Investigation
+
+V2 transforms TraceForge from a predefined-scenario training tool into an **evidence-driven investigation platform**. Upload any security event dataset and the system automatically reconstructs the attack chain.
+
+### V2 Demo Flow
+
+1. Navigate to **[http://localhost:3000/investigate/upload](http://localhost:3000/investigate/upload)**
+2. Drop a JSON/NDJSON/CSV event file **or** click one of the 3 built-in sample datasets
+3. Review the Dataset Overview (event count, time range, hosts, users, IPs, warnings)
+4. Click **Reconstruct Investigation**
+5. Watch honest processing stages (Parsing → Normalizing → Correlating → Mapping → Ready)
+6. Explore the V2 investigation view:
+   - **Attack Chain** — inferred kill-chain stages with confidence scores
+   - **Timeline** — all events sorted chronologically with suspicious event highlighting
+   - **MITRE ATT&CK** — dynamically inferred technique mappings with evidence links
+   - **IOCs** — extracted indicators grouped by type with event drill-down
+7. Click any event → right panel shows forensic detail + AI Mentor explanation
+8. Click **Ask Mentor** in the status bar for hints or a full summary
+9. Switch language using the globe selector: **English | தமிழ் | हिन्दी | മലയാളം**
+
+### V2 API Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `POST` | `/api/v2/events/ingest` | Parse and validate a dataset, return overview without full reconstruction |
+| `POST` | `/api/v2/investigation/reconstruct` | Run full pipeline, return `ReconstructionResult` |
+| `GET` | `/api/v2/investigation/:id` | Retrieve a stored reconstruction by dataset ID |
+| `POST` | `/api/v2/investigation/:id/explain` | AI Mentor explanation for any V2 action |
+| `POST` | `/api/v2/investigation/:id/translate` | Translate explanation text to Tamil/Hindi/Malayalam |
+
+### V2 Event Schema
+
+The ingestion engine accepts flexible JSON. Minimum required field: a timestamp.
+
+```json
+[
+  {
+    "timestamp": "2026-01-15T08:01:04Z",
+    "event": "failed_login",
+    "source_ip": "203.0.113.45",
+    "user": "admin",
+    "hostname": "vpn-gw-01"
+  }
+]
+```
+
+Supported timestamp formats: ISO-8601, Unix seconds (10 digits), Unix milliseconds (13 digits), natural date strings.
+
+Field auto-detection supports 12 timestamp aliases, 9 IP aliases, 8 user aliases, and more — see `src/lib/v2/eventIngestion.ts`.
+
+### V2 Sample Datasets
+
+Three synthetic datasets are included in `public/sample-datasets/`:
+
+| Dataset | Attack Type | Events |
+|---|---|---|
+| `brute-force.json` | SSH Brute Force → Lateral Movement | 23 |
+| `ransomware.json` | Phishing → Ransomware Deployment | 18 |
+| `insider-threat.json` | Insider Data Exfiltration | 17 |
+
+All datasets are **synthetic** — no real threat data, all IPs/usernames/hostnames are fictional.
+
+### Multilingual Architecture
+
+The language layer translates **explanations only** — never raw evidence values.
+
+**Never translated:** MITRE technique IDs, IP addresses, file hashes, domain names, timestamps, event IDs
+
+**Translated:** Incident summary, stage reasoning, MITRE explanations, mentor guidance, recommendations
+
+If Gemini is unavailable, English text is returned with an inline note in the target language.
+
+---
+
 ## Future Scope
 
 - [ ] MITRE ATT&CK tactic assignment per evidence card (interactive)
+- [ ] Causal link builder (directed graph between evidence cards)
+- [ ] PDF export of incident reports
+- [ ] User authentication and progress persistence (PWNDORA SSO)
+- [ ] Community scenario sharing
+- [ ] Live SOC simulation mode (real-time event streaming)
+- [ ] Mobile-responsive layout
+- [ ] PCAP / Zeek log ingestion
+- [ ] STIX/TAXII threat intelligence integration
+- [ ] Additional V1 scenario types: APT, Supply Chain, Phishing
+
+---
 - [ ] Causal link builder (directed graph between evidence cards)
 - [ ] PDF export of incident reports
 - [ ] User authentication and progress persistence (PWNDORA SSO)

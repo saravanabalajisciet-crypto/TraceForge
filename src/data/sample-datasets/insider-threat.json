@@ -1,0 +1,193 @@
+[
+  {
+    "timestamp": "2026-03-10T09:02:11Z",
+    "event": "successful_login",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "log_source": "Windows Event Log",
+    "message": "Normal business-hours login — m.chen workstation",
+    "severity": "low"
+  },
+  {
+    "timestamp": "2026-03-10T09:15:44Z",
+    "event": "file_accessed",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "file_path": "\\\\fileserver-02\\Engineering\\Projects\\ProjectAlpha\\design_specs_v3.pdf",
+    "message": "Sensitive design spec accessed — within normal access pattern",
+    "log_source": "SharePoint Audit",
+    "severity": "low"
+  },
+  {
+    "timestamp": "2026-03-10T14:22:05Z",
+    "event": "file_accessed",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "file_path": "\\\\fileserver-02\\Engineering\\Projects\\ProjectAlpha\\proprietary_algo.py",
+    "message": "Source code accessed — within normal pattern",
+    "log_source": "SharePoint Audit",
+    "severity": "low"
+  },
+  {
+    "timestamp": "2026-03-10T18:41:07Z",
+    "event": "successful_login",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "log_source": "Windows Event Log",
+    "message": "Login after business hours — m.chen",
+    "severity": "medium"
+  },
+  {
+    "timestamp": "2026-03-10T18:43:22Z",
+    "event": "bulk_file_access",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "file_path": "\\\\fileserver-02\\Engineering\\Projects\\",
+    "message": "147 files accessed in Engineering share within 90 seconds — anomalous",
+    "log_source": "SIEM",
+    "severity": "high"
+  },
+  {
+    "timestamp": "2026-03-10T18:47:55Z",
+    "event": "process_created",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "process": "7z.exe",
+    "command": "7z.exe a -p\"Tr@nsf3r2026!\" C:\\Users\\m.chen\\AppData\\Local\\Temp\\docs_backup.7z \\\\fileserver-02\\Engineering\\Projects\\ -r",
+    "message": "Password-protected 7-Zip archive created containing Engineering Projects share",
+    "log_source": "Sysmon",
+    "severity": "critical"
+  },
+  {
+    "timestamp": "2026-03-10T18:51:33Z",
+    "event": "file_rename",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "file_path": "C:\\Users\\m.chen\\AppData\\Local\\Temp\\docs_backup.7z",
+    "message": "Archive renamed to photos_vacation.zip — DLP evasion suspected",
+    "log_source": "Sysmon",
+    "severity": "high"
+  },
+  {
+    "timestamp": "2026-03-10T18:53:12Z",
+    "event": "network_connection",
+    "source_ip": "10.50.1.88",
+    "destination_ip": "142.250.80.14",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "port": 443,
+    "protocol": "https",
+    "domain": "drive.google.com",
+    "message": "HTTPS connection to drive.google.com — possible cloud upload",
+    "log_source": "Firewall",
+    "severity": "medium"
+  },
+  {
+    "timestamp": "2026-03-10T18:53:44Z",
+    "event": "data_exfiltration",
+    "source_ip": "10.50.1.88",
+    "destination_ip": "142.250.80.14",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "port": 443,
+    "protocol": "https",
+    "domain": "drive.google.com",
+    "message": "DLP alert: 1.8 GB upload to drive.google.com — exceeds policy threshold of 100 MB",
+    "log_source": "DLP",
+    "severity": "critical"
+  },
+  {
+    "timestamp": "2026-03-10T19:01:08Z",
+    "event": "usb_connected",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "message": "USB mass storage device connected: SanDisk Ultra 64GB (serial: 20460811)",
+    "log_source": "Windows Event Log",
+    "severity": "high"
+  },
+  {
+    "timestamp": "2026-03-10T19:02:44Z",
+    "event": "file_copy",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "file_path": "E:\\Engineering_Backup_2026.7z",
+    "message": "1.8 GB file copied to USB drive (E:)",
+    "log_source": "DLP",
+    "severity": "critical"
+  },
+  {
+    "timestamp": "2026-03-10T19:08:19Z",
+    "event": "process_created",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "process": "wevtutil.exe",
+    "command": "wevtutil.exe cl Security",
+    "message": "Security event log cleared using wevtutil",
+    "log_source": "Windows Event Log",
+    "severity": "critical"
+  },
+  {
+    "timestamp": "2026-03-10T19:09:05Z",
+    "event": "process_created",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "process": "cmd.exe",
+    "command": "del /f /q C:\\Users\\m.chen\\AppData\\Local\\Temp\\docs_backup.7z",
+    "message": "Staged archive deleted from local temp directory",
+    "log_source": "Sysmon",
+    "severity": "medium"
+  },
+  {
+    "timestamp": "2026-03-10T19:11:34Z",
+    "event": "successful_login",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "domain": "personal.webmail.com",
+    "message": "Login to personal webmail from corporate workstation",
+    "log_source": "Proxy",
+    "severity": "medium"
+  },
+  {
+    "timestamp": "2026-03-10T19:12:51Z",
+    "event": "email_sent",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "domain": "personal.webmail.com",
+    "message": "Email sent to m.chen.personal@personalwebmail.com — attachment detected (subject: 'For my records')",
+    "log_source": "DLP",
+    "severity": "critical"
+  },
+  {
+    "timestamp": "2026-03-10T19:18:00Z",
+    "event": "usb_disconnected",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "message": "USB mass storage device disconnected",
+    "log_source": "Windows Event Log",
+    "severity": "low"
+  },
+  {
+    "timestamp": "2026-03-10T19:22:44Z",
+    "event": "session_ended",
+    "source_ip": "10.50.1.88",
+    "user": "m.chen",
+    "hostname": "ws-engineering-07",
+    "message": "User session ended — logoff",
+    "log_source": "Windows Event Log",
+    "severity": "low"
+  }
+]

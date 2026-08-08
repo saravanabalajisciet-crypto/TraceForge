@@ -11,6 +11,7 @@ const navItems = [
   { label: "Home", href: "/" },
   { label: "Scenarios", href: "/scenarios" },
   { label: "Investigation", href: "/investigation" },
+  { label: "Investigate V2", href: "/investigate/upload" },
   { label: "Report", href: "/report" },
 ];
 

@@ -59,6 +59,18 @@ export const SAMPLE_DATASETS: SampleDatasetMeta[] = [
     tags: ["Insider Threat", "Data Theft", "DLP", "Defense Evasion"],
     fileName: "insider-threat.json",
   },
+  {
+    id: "sample-elastic-format",
+    title: "Elastic ECS Format — Web Server Compromise",
+    description:
+      "Demonstrates @timestamp and nested Elastic Common Schema fields. An attacker downloads a payload via curl, executes it, escalates privileges, establishes C2, and clears logs. Tests non-standard field name handling.",
+    attackType: "Credential Theft",
+    difficulty: "Beginner",
+    eventCount: 8,
+    timeRangeLabel: "~2 minutes",
+    tags: ["ECS Format", "@timestamp", "Reverse Shell", "Persistence"],
+    fileName: "elastic-format.json",
+  },
 ];
 
 export function getSampleDatasetById(id: string): SampleDatasetMeta | undefined {

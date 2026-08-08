@@ -1,0 +1,70 @@
+{
+  "scenario": "Operation ShadowLock",
+  "description": "Synthetic ransomware investigation events for TraceForge AI V2.",
+  "events": [
+    {
+      "timestamp": "2026-08-08T09:12:03Z",
+      "host": "WS-014",
+      "user": "arun",
+      "event_type": "process_start",
+      "process": "powershell.exe",
+      "command": "powershell -enc <REDACTED>"
+    },
+    {
+      "timestamp": "2026-08-08T09:12:18Z",
+      "host": "WS-014",
+      "user": "arun",
+      "event_type": "network_connection",
+      "destination_ip": "185.199.110.44",
+      "destination_port": 443
+    },
+    {
+      "timestamp": "2026-08-08T09:13:01Z",
+      "host": "WS-014",
+      "user": "arun",
+      "event_type": "file_write",
+      "path": "C:\\Users\\arun\\AppData\\Local\\Temp\\update.exe"
+    },
+    {
+      "timestamp": "2026-08-08T09:13:44Z",
+      "host": "WS-014",
+      "user": "SYSTEM",
+      "event_type": "service_create",
+      "service_name": "WindowsUpdateHelper",
+      "image": "C:\\Users\\arun\\AppData\\Local\\Temp\\update.exe"
+    },
+    {
+      "timestamp": "2026-08-08T09:15:12Z",
+      "host": "WS-014",
+      "user": "SYSTEM",
+      "event_type": "file_encrypt",
+      "path": "C:\\Finance\\Q3.xlsx",
+      "extension_before": ".xlsx",
+      "extension_after": ".locked"
+    },
+    {
+      "timestamp": "2026-08-08T09:15:21Z",
+      "host": "WS-014",
+      "user": "SYSTEM",
+      "event_type": "file_encrypt",
+      "path": "C:\\Finance\\Payroll.xlsx",
+      "extension_before": ".xlsx",
+      "extension_after": ".locked"
+    },
+    {
+      "timestamp": "2026-08-08T09:16:02Z",
+      "host": "WS-014",
+      "user": "SYSTEM",
+      "event_type": "file_create",
+      "path": "C:\\Users\\Public\\README_FOR_DECRYPT.txt"
+    },
+    {
+      "timestamp": "2026-08-08T09:17:30Z",
+      "host": "WS-014",
+      "user": "SYSTEM",
+      "event_type": "process_start",
+      "process": "vssadmin.exe",
+      "command": "vssadmin delete shadows /all /quiet"
+    }
+  ]
+}

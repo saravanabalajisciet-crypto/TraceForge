@@ -269,6 +269,27 @@ export interface IngestionResult {
   warnings: string[];
   /** Fatal per-record errors */
   errors: IngestionError[];
+  /** Detected schema information — which fields were found and used */
+  detectedSchema?: DetectedSchema;
+  /** Per-record skip details for UI display */
+  skippedRecords?: SkippedRecord[];
+}
+
+/** Detected field mappings for display in the upload UI */
+export interface DetectedSchema {
+  timestampField?: string;
+  timestampFormat?: string;
+  sourceIpField?: string;
+  destinationIpField?: string;
+  userField?: string;
+  eventTypeField?: string;
+  hostnameField?: string;
+}
+
+/** Details about a record that was skipped */
+export interface SkippedRecord {
+  recordIndex: number;
+  reason: string;
 }
 
 // ─── Reconstruction ───────────────────────────────────────────────────────────
@@ -425,6 +446,8 @@ export interface DatasetOverview {
   uniqueIps: string[];
   warnings: string[];
   errors: IngestionError[];
+  detectedSchema?: DetectedSchema;
+  skippedRecords?: SkippedRecord[];
 }
 
 // ─── Guard utilities ──────────────────────────────────────────────────────────

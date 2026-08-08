@@ -20,6 +20,8 @@ import {
   IngestionError,
   IngestionFormat,
   DatasetOverview,
+  DetectedSchema,
+  SkippedRecord,
   isIpv4,
   isIpv6,
 } from "@/types/v2";
@@ -101,26 +103,64 @@ const SEVERITY_FIELDS = [
 /**
  * Look up the first matching field value from a record.
  * Returns undefined if none found or value is null/empty.
+ * Also searches one level of nesting (e.g. "host.name" → record.host.name).
  */
 function pickField(
   record: Record<string, unknown>,
   candidates: string[]
 ): string | undefined {
+  return pickFieldWithKey(record, candidates)?.value;
+}
+
+/**
+ * Find the first matching field key from a record (case-insensitive).
+ * Also tries dot-notation access for nested fields (one level deep).
+ * Returns the matched key name and its string value, or undefined.
+ */
+function pickFieldWithKey(
+  record: Record<string, unknown>,
+  candidates: string[]
+): { key: string; value: string } | undefined {
   for (const key of candidates) {
-    // exact match
+    // exact match (handles @timestamp with special char)
     if (key in record) {
       const v = record[key];
-      if (v !== null && v !== undefined && String(v).trim() !== "") {
-        return String(v).trim();
+      if (v !== null && v !== undefined) {
+        // If nested object, look for common sub-fields
+        if (typeof v === "object" && !Array.isArray(v)) {
+          const nested = v as Record<string, unknown>;
+          // Try common nested keys: name, value, text, id
+          for (const sub of ["name", "value", "text", "id", "address"]) {
+            if (sub in nested && nested[sub] !== null && nested[sub] !== undefined && String(nested[sub]).trim() !== "") {
+              return { key: `${key}.${sub}`, value: String(nested[sub]).trim() };
+            }
+          }
+        }
+        const strV = String(v).trim();
+        if (strV !== "" && strV !== "[object Object]") {
+          return { key, value: strV };
+        }
       }
     }
+
     // case-insensitive match
     const lower = key.toLowerCase();
     for (const rKey of Object.keys(record)) {
       if (rKey.toLowerCase() === lower) {
         const v = record[rKey];
-        if (v !== null && v !== undefined && String(v).trim() !== "") {
-          return String(v).trim();
+        if (v !== null && v !== undefined) {
+          if (typeof v === "object" && !Array.isArray(v)) {
+            const nested = v as Record<string, unknown>;
+            for (const sub of ["name", "value", "text", "id", "address"]) {
+              if (sub in nested && nested[sub] !== null && nested[sub] !== undefined && String(nested[sub]).trim() !== "") {
+                return { key: `${rKey}.${sub}`, value: String(nested[sub]).trim() };
+              }
+            }
+          }
+          const strV = String(v).trim();
+          if (strV !== "" && strV !== "[object Object]") {
+            return { key: rKey, value: strV };
+          }
         }
       }
     }
@@ -128,36 +168,37 @@ function pickField(
   return undefined;
 }
 
-function pickNumber(
-  record: Record<string, unknown>,
-  candidates: string[]
-): number | undefined {
+/**
+ * Normalize a timestamp string to ISO-8601 UTC.
+ * Accepts: ISO-8601, YYYY-MM-DD HH:mm:ss, Unix seconds, Unix milliseconds, common date strings.
+ * Returns null if unparseable.
+ */
+function normalizeTimestamp(raw: string): { iso: string; format: string } | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (/^\d{10}$/.test(trimmed)) {
+    return { iso: new Date(parseInt(trimmed, 10) * 1000).toISOString(), format: "Unix seconds" };
+  }
+  if (/^\d{13}$/.test(trimmed)) {
+    return { iso: new Date(parseInt(trimmed, 10)).toISOString(), format: "Unix milliseconds" };
+  }
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(trimmed)) {
+    const d = new Date(trimmed.replace(" ", "T") + (trimmed.includes("+") || trimmed.endsWith("Z") ? "" : "Z"));
+    if (!isNaN(d.getTime())) return { iso: d.toISOString(), format: "YYYY-MM-DD HH:mm:ss" };
+  }
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) {
+    const fmt = /^\d{4}-\d{2}-\d{2}T/.test(trimmed) ? "ISO 8601" : "Date string";
+    return { iso: d.toISOString(), format: fmt };
+  }
+  return null;
+}
+
+function pickNumber(record: Record<string, unknown>, candidates: string[]): number | undefined {
   const raw = pickField(record, candidates);
   if (!raw) return undefined;
   const n = Number(raw);
   return isNaN(n) ? undefined : n;
-}
-
-/**
- * Normalize a timestamp string to ISO-8601 UTC.
- * Accepts: ISO-8601, Unix seconds, Unix milliseconds, common date strings.
- * Returns null if unparseable.
- */
-function normalizeTimestamp(raw: string): string | null {
-  if (!raw) return null;
-
-  // Unix epoch (seconds — 10 digits)
-  if (/^\d{10}$/.test(raw.trim())) {
-    return new Date(parseInt(raw, 10) * 1000).toISOString();
-  }
-  // Unix epoch (milliseconds — 13 digits)
-  if (/^\d{13}$/.test(raw.trim())) {
-    return new Date(parseInt(raw, 10)).toISOString();
-  }
-
-  const d = new Date(raw);
-  if (!isNaN(d.getTime())) return d.toISOString();
-  return null;
 }
 
 /**
@@ -259,6 +300,48 @@ function dedupKey(event: SecurityEvent): string {
 
 // ─── JSON Parser ──────────────────────────────────────────────────────────────
 
+/**
+ * Unwrap common wrapper structures:
+ * - { "events": [...] }
+ * - { "data": [...] }
+ * - { "records": [...] }
+ * - { "logs": [...] }
+ * - { "items": [...] }
+ * - { "results": [...] }
+ * If the top-level object has exactly one key whose value is an array of objects,
+ * use that array. Otherwise treat the object as a single record.
+ */
+function unwrapRecord(parsed: unknown): Record<string, unknown>[] {
+  if (Array.isArray(parsed)) {
+    return parsed as Record<string, unknown>[];
+  }
+  if (typeof parsed !== "object" || parsed === null) return [];
+
+  const obj = parsed as Record<string, unknown>;
+
+  // Check known wrapper keys first
+  const WRAPPER_KEYS = ["events", "data", "records", "logs", "items", "results", "hits", "entries"];
+  for (const key of WRAPPER_KEYS) {
+    if (Array.isArray(obj[key])) {
+      return obj[key] as Record<string, unknown>[];
+    }
+  }
+
+  // Check if there's exactly one key with an array value
+  const keys = Object.keys(obj);
+  const arrayKeys = keys.filter((k) => Array.isArray(obj[k]));
+  if (arrayKeys.length === 1) {
+    const arr = obj[arrayKeys[0]] as unknown[];
+    // Only unwrap if elements look like objects
+    if (arr.length > 0 && typeof arr[0] === "object" && arr[0] !== null) {
+      return arr as Record<string, unknown>[];
+    }
+  }
+
+  // Single object — treat as one record
+  return [obj];
+}
+
 function parseJson(
   input: string
 ): { records: Record<string, unknown>[]; parseError?: string } {
@@ -267,14 +350,7 @@ function parseJson(
 
   try {
     const parsed = JSON.parse(trimmed);
-    if (Array.isArray(parsed)) {
-      return { records: parsed as Record<string, unknown>[] };
-    }
-    if (typeof parsed === "object" && parsed !== null) {
-      // Single object — wrap in array
-      return { records: [parsed as Record<string, unknown>] };
-    }
-    return { records: [], parseError: "JSON must be an array of objects or a single object." };
+    return { records: unwrapRecord(parsed) };
   } catch (e) {
     return { records: [], parseError: `JSON parse error: ${(e as Error).message}` };
   }
@@ -382,6 +458,15 @@ interface MapResult {
   event?: SecurityEvent;
   error?: IngestionError;
   missingTimestamp: boolean;
+  schemaHints?: {
+    timestampField?: string;
+    timestampFormat?: string;
+    sourceIpField?: string;
+    destIpField?: string;
+    userField?: string;
+    eventTypeField?: string;
+    hostnameField?: string;
+  };
 }
 
 function mapRecordToEvent(
@@ -389,39 +474,43 @@ function mapRecordToEvent(
   recordIndex: number
 ): MapResult {
   // Timestamp — required
-  const rawTs = pickField(record, TIMESTAMP_FIELDS);
-  if (!rawTs) {
+  const tsMatch = pickFieldWithKey(record, TIMESTAMP_FIELDS);
+  if (!tsMatch) {
+    const tried = TIMESTAMP_FIELDS.slice(0, 8).join(", ");
     return {
       missingTimestamp: true,
       error: {
         recordIndex,
         field: "timestamp",
-        message: "No timestamp field found. Tried: " + TIMESTAMP_FIELDS.slice(0, 5).join(", ") + "...",
+        message: `No timestamp field found. Tried: ${tried}...`,
         raw: record,
       },
     };
   }
 
-  const timestamp = normalizeTimestamp(rawTs);
-  if (!timestamp) {
+  const tsResult = normalizeTimestamp(tsMatch.value);
+  if (!tsResult) {
     return {
       missingTimestamp: true,
       error: {
         recordIndex,
-        field: "timestamp",
-        message: `Could not parse timestamp value: "${rawTs}"`,
+        field: tsMatch.key,
+        message: `Could not parse timestamp value: "${tsMatch.value}" in field "${tsMatch.key}"`,
         raw: record,
       },
     };
   }
 
   // Event type — use "unknown_event" if not found
-  const rawEventType = pickField(record, EVENT_TYPE_FIELDS) ?? "unknown_event";
-  const eventType = rawEventType.toLowerCase().replace(/\s+/g, "_");
+  const etMatch = pickFieldWithKey(record, EVENT_TYPE_FIELDS);
+  const rawEventType = etMatch?.value ?? "unknown_event";
+  const eventType = rawEventType.toLowerCase().replace(/[\s\-]+/g, "_");
 
   // IP fields
-  const rawSourceIp = pickField(record, SOURCE_IP_FIELDS);
-  const rawDestIp = pickField(record, DEST_IP_FIELDS);
+  const srcIpMatch = pickFieldWithKey(record, SOURCE_IP_FIELDS);
+  const dstIpMatch = pickFieldWithKey(record, DEST_IP_FIELDS);
+  const userMatch = pickFieldWithKey(record, USER_FIELDS);
+  const hostnameMatch = pickFieldWithKey(record, HOSTNAME_FIELDS);
 
   // Severity
   const rawSeverity = pickField(record, SEVERITY_FIELDS);
@@ -431,13 +520,13 @@ function mapRecordToEvent(
 
   const event: SecurityEvent = {
     id: randomUUID(),
-    timestamp,
+    timestamp: tsResult.iso,
     eventType,
     source: pickField(record, ["log_source", "source_type", "log_type", "data_source"]),
-    sourceIp: normalizeIp(rawSourceIp),
-    destinationIp: normalizeIp(rawDestIp),
-    user: pickField(record, USER_FIELDS)?.toLowerCase(),
-    hostname: pickField(record, HOSTNAME_FIELDS)?.toLowerCase(),
+    sourceIp: normalizeIp(srcIpMatch?.value),
+    destinationIp: normalizeIp(dstIpMatch?.value),
+    user: userMatch?.value.toLowerCase(),
+    hostname: hostnameMatch?.value.toLowerCase(),
     process: pickField(record, PROCESS_FIELDS),
     command: pickField(record, COMMAND_FIELDS),
     filePath: pickField(record, FILE_PATH_FIELDS),
@@ -449,7 +538,19 @@ function mapRecordToEvent(
     raw: record,
   };
 
-  return { event, missingTimestamp: false };
+  return {
+    event,
+    missingTimestamp: false,
+    schemaHints: {
+      timestampField: tsMatch.key,
+      timestampFormat: tsResult.format,
+      sourceIpField: srcIpMatch?.key,
+      destIpField: dstIpMatch?.key,
+      userField: userMatch?.key,
+      eventTypeField: etMatch?.key,
+      hostnameField: hostnameMatch?.key,
+    },
+  };
 }
 
 // ─── Detect all field names across records ────────────────────────────────────
@@ -508,35 +609,93 @@ export function ingestEvents(
   const events: SecurityEvent[] = [];
   let missingTimestamps = 0;
   let invalidRecords = 0;
+  const skippedRecords: SkippedRecord[] = [];
+
+  // Schema detection — collect from first successfully mapped record
+  const schemaAccumulator: Record<string, number> = {};
+  let detectedTimestampField: string | undefined;
+  let detectedTimestampFormat: string | undefined;
+  let detectedSourceIpField: string | undefined;
+  let detectedDestIpField: string | undefined;
+  let detectedUserField: string | undefined;
+  let detectedEventTypeField: string | undefined;
+  let detectedHostnameField: string | undefined;
 
   for (let i = 0; i < rawRecords.length; i++) {
     const record = rawRecords[i];
     if (typeof record !== "object" || record === null) {
       errors.push({ recordIndex: i, message: "Record is not an object.", raw: record });
       invalidRecords++;
+      skippedRecords.push({ recordIndex: i, reason: "Record is not an object" });
       continue;
     }
 
-    const { event, error, missingTimestamp } = mapRecordToEvent(
+    const { event, error, missingTimestamp, schemaHints } = mapRecordToEvent(
       record as Record<string, unknown>,
       i
     );
 
+    // Accumulate schema hints from all records (most common field wins)
+    if (schemaHints) {
+      if (schemaHints.timestampField) { schemaAccumulator[`ts:${schemaHints.timestampField}`] = (schemaAccumulator[`ts:${schemaHints.timestampField}`] ?? 0) + 1; }
+      if (schemaHints.sourceIpField) { schemaAccumulator[`sip:${schemaHints.sourceIpField}`] = (schemaAccumulator[`sip:${schemaHints.sourceIpField}`] ?? 0) + 1; }
+      if (schemaHints.destIpField) { schemaAccumulator[`dip:${schemaHints.destIpField}`] = (schemaAccumulator[`dip:${schemaHints.destIpField}`] ?? 0) + 1; }
+      if (schemaHints.userField) { schemaAccumulator[`user:${schemaHints.userField}`] = (schemaAccumulator[`user:${schemaHints.userField}`] ?? 0) + 1; }
+      if (schemaHints.eventTypeField) { schemaAccumulator[`et:${schemaHints.eventTypeField}`] = (schemaAccumulator[`et:${schemaHints.eventTypeField}`] ?? 0) + 1; }
+      if (schemaHints.hostnameField) { schemaAccumulator[`host:${schemaHints.hostnameField}`] = (schemaAccumulator[`host:${schemaHints.hostnameField}`] ?? 0) + 1; }
+      // Track first format seen
+      if (!detectedTimestampFormat && schemaHints.timestampFormat) detectedTimestampFormat = schemaHints.timestampFormat;
+    }
+
     if (missingTimestamp) {
       missingTimestamps++;
       invalidRecords++;
-      if (error) errors.push(error);
+      if (error) {
+        errors.push(error);
+        skippedRecords.push({ recordIndex: i, reason: error.message });
+      }
       continue;
     }
 
     if (error) {
       invalidRecords++;
       errors.push(error);
+      skippedRecords.push({ recordIndex: i, reason: error.message });
       continue;
     }
 
     if (event) events.push(event);
   }
+
+  // Resolve most-common schema fields
+  function mostCommon(prefix: string): string | undefined {
+    let best: string | undefined;
+    let bestCount = 0;
+    for (const [key, count] of Object.entries(schemaAccumulator)) {
+      if (key.startsWith(prefix + ":") && count > bestCount) {
+        best = key.slice(prefix.length + 1);
+        bestCount = count;
+      }
+    }
+    return best;
+  }
+
+  detectedTimestampField = mostCommon("ts");
+  detectedSourceIpField = mostCommon("sip");
+  detectedDestIpField = mostCommon("dip");
+  detectedUserField = mostCommon("user");
+  detectedEventTypeField = mostCommon("et");
+  detectedHostnameField = mostCommon("host");
+
+  const detectedSchema: DetectedSchema = {
+    timestampField: detectedTimestampField,
+    timestampFormat: detectedTimestampFormat,
+    sourceIpField: detectedSourceIpField,
+    destinationIpField: detectedDestIpField,
+    userField: detectedUserField,
+    eventTypeField: detectedEventTypeField,
+    hostnameField: detectedHostnameField,
+  };
 
   // ── 4. Remove duplicates ───────────────────────────────────────────────────
   const seen = new Set<string>();
@@ -561,8 +720,9 @@ export function ingestEvents(
     warnings.push("No valid events could be extracted from the input.");
   }
   if (missingTimestamps > 0) {
+    const fieldNote = detectedTimestampField ? ` (detected field: "${detectedTimestampField}")` : "";
     warnings.push(
-      `${missingTimestamps} record${missingTimestamps > 1 ? "s" : ""} skipped due to missing or unparseable timestamps.`
+      `${missingTimestamps} record${missingTimestamps > 1 ? "s" : ""} skipped due to missing or unparseable timestamps${fieldNote}.`
     );
   }
   if (duplicatesRemoved > 0) {
@@ -594,6 +754,8 @@ export function ingestEvents(
     detectedFields,
     warnings,
     errors,
+    detectedSchema,
+    skippedRecords,
   };
 }
 
@@ -668,5 +830,7 @@ export function buildDatasetOverview(
     uniqueIps,
     warnings: result.warnings,
     errors: result.errors,
+    detectedSchema: result.detectedSchema,
+    skippedRecords: result.skippedRecords,
   };
 }

@@ -1,0 +1,48 @@
+{
+  "scenario": "Operation Silent Insider",
+  "description": "Synthetic insider-threat investigation events.",
+  "events": [
+    {
+      "timestamp": "2026-08-08T14:01:10Z",
+      "host": "DEV-022",
+      "user": "meena",
+      "event_type": "login",
+      "source_ip": "10.10.24.17"
+    },
+    {
+      "timestamp": "2026-08-08T14:22:40Z",
+      "host": "DEV-022",
+      "user": "meena",
+      "event_type": "file_access",
+      "path": "D:\\Projects\\customer_master.csv"
+    },
+    {
+      "timestamp": "2026-08-08T14:24:11Z",
+      "host": "DEV-022",
+      "user": "meena",
+      "event_type": "archive_create",
+      "path": "C:\\Users\\meena\\Downloads\\project_backup.zip"
+    },
+    {
+      "timestamp": "2026-08-08T14:25:07Z",
+      "host": "DEV-022",
+      "user": "meena",
+      "event_type": "usb_insert",
+      "device": "USB-STORAGE-77"
+    },
+    {
+      "timestamp": "2026-08-08T14:26:31Z",
+      "host": "DEV-022",
+      "user": "meena",
+      "event_type": "file_copy",
+      "source": "D:\\Projects\\customer_master.csv",
+      "destination": "E:\\backup\\customer_master.csv"
+    },
+    {
+      "timestamp": "2026-08-08T14:28:44Z",
+      "host": "DEV-022",
+      "user": "meena",
+      "event_type": "logout"
+    }
+  ]
+}

@@ -64,13 +64,7 @@ export function Navbar() {
           })}
         </div>
 
-        {/* CTA */}
-        <div className="hidden md:flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03]">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs text-white/40 font-mono">PWNDORA 2026</span>
-          </div>
-        </div>
+
 
         {/* Mobile menu toggle */}
         <button
